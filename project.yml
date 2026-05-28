@@ -1,0 +1,75 @@
+name: Helm
+options:
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  Markdown:
+    url: https://github.com/apple/swift-markdown.git
+    from: "0.6.0"
+  Citadel:
+    url: https://github.com/orlandos-nl/Citadel.git
+    from: "0.7.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  Helm:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Helm
+    dependencies:
+      - package: Markdown
+      - package: Citadel
+    info:
+      path: Helm/GeneratedInfo.plist
+      properties:
+        CFBundleDisplayName: Helm
+        UILaunchScreen: {}
+        NSLocalNetworkUsageDescription: Helm connects to your machines over your private Tailscale network.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    configFiles:
+      Debug: Signing.xcconfig
+      Release: Signing.xcconfig
+    settings:
+      base:
+        CODE_SIGN_STYLE: Automatic
+        PRODUCT_BUNDLE_IDENTIFIER: org.scty.helm
+        PRODUCT_NAME: Helm
+  HelmTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: HelmTests
+    dependencies:
+      - target: Helm
+    configFiles:
+      Debug: Signing.xcconfig
+      Release: Signing.xcconfig
+    settings:
+      base:
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: org.scty.helm.tests
+schemes:
+  Helm:
+    build:
+      targets:
+        Helm: all
+        HelmTests: [test]
+    test:
+      targets:
+        - HelmTests

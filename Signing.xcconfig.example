@@ -1,0 +1,3 @@
+// Copy to Signing.xcconfig and set your Apple Developer Team ID, then run `make generate`.
+// Leave blank to build for the Simulator without signing.
+DEVELOPMENT_TEAM = 
