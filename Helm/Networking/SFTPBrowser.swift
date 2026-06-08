@@ -35,6 +35,7 @@ enum SFTPBrowserError: LocalizedError, Equatable {
     case missingCredentials
     case unsupportedKey
     case authenticationFailed
+    case hostNotFound
     case connectionFailed(String)
     case notReadable
     case underlying(String)
@@ -46,7 +47,9 @@ enum SFTPBrowserError: LocalizedError, Equatable {
         case .unsupportedKey:
             "Helm couldn't read this private key. Use an OpenSSH ed25519 or RSA key, and check the passphrase."
         case .authenticationFailed:
-            "Authentication failed. Check the username, key, and passphrase."
+            "Authentication failed. Check the username and auth method. A Tailscale-SSH host needs the Tailscale method, not a key or password."
+        case .hostNotFound:
+            "Couldn't resolve that hostname. Use the full Tailscale name (host.tailnet.ts.net) or a 100.x address."
         case let .connectionFailed(message):
             message
         case .notReadable:
@@ -128,12 +131,14 @@ final class SFTPBrowser: @unchecked Sendable {
 
     /// Opens (and caches) a connection just to confirm reachability. Returns true
     /// if the host answered, warming the pool so the first browse is instant.
-    func warmUp(host: SSHHost, credentials: ResolvedCredentials) async -> Bool {
+    /// Probes a host. Returns nil on success, or the classified failure (auth, host
+    /// not found, unreachable) so the UI can say *why* — not just "Unreachable".
+    func warmUp(host: SSHHost, credentials: ResolvedCredentials) async -> SFTPBrowserError? {
         do {
             _ = try await openConnection(for: host, credentials: credentials)
-            return true
+            return nil
         } catch {
-            return false
+            return Self.map(error)
         }
     }
 
@@ -332,15 +337,25 @@ final class SFTPBrowser: @unchecked Sendable {
         if description.contains("auth") || description.contains("permission denied") {
             return .authenticationFailed
         }
+        // A name that doesn't resolve is a distinct, common mistake (wrong/short
+        // hostname) — call it out separately so it isn't buried under "Unreachable".
+        for keyword in hostNotFoundKeywords where description.contains(keyword) {
+            return .hostNotFound
+        }
         for keyword in connectionFailureKeywords where description.contains(keyword) {
             return .connectionFailed(unreachableMessage)
         }
         return nil
     }
 
+    private static let hostNotFoundKeywords = [
+        "no such host", "nodename nor servname", "name or service not known",
+        "name resolution", "could not resolve", "dns"
+    ]
+
     private static let connectionFailureKeywords = [
         "refused", "timed out", "timeout", "unreachable", "connect", "closed",
-        "notconnected", "eof", "nioconnectionerror", "dns", "name resolution",
-        "no route", "host is down", "network is down"
+        "notconnected", "eof", "nioconnectionerror", "no route", "host is down",
+        "network is down"
     ]
 }

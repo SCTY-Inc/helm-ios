@@ -165,7 +165,7 @@ struct FileBrowserView: View {
         phase = .loading
 
         guard let credentials = appState.credentials(for: host) else {
-            phase = .failed(SFTPBrowserError.missingCredentials.localizedDescription ?? "Missing credentials.")
+            phase = .failed(SFTPBrowserError.missingCredentials.localizedDescription)
             return
         }
 

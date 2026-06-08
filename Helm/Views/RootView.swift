@@ -156,8 +156,8 @@ struct RootView: View {
                 hostStatus[host.id] = .unreachable
                 continue
             }
-            let reachable = await SFTPBrowser.shared.warmUp(host: host, credentials: credentials)
-            hostStatus[host.id] = reachable ? .reachable : .unreachable
+            let failure = await SFTPBrowser.shared.warmUp(host: host, credentials: credentials)
+            hostStatus[host.id] = HostStatus(failure)
         }
     }
 
@@ -174,13 +174,23 @@ struct RootView: View {
 }
 
 enum HostStatus {
-    case checking, reachable, unreachable
+    case checking, reachable, unreachable, authFailed, hostNotFound
+
+    /// Derives a host's status from a probe result: nil means it answered.
+    init(_ failure: SFTPBrowserError?) {
+        switch failure {
+        case .none: self = .reachable
+        case .authenticationFailed: self = .authFailed
+        case .hostNotFound: self = .hostNotFound
+        default: self = .unreachable
+        }
+    }
 
     var dotLevel: StatusDot.Level {
         switch self {
         case .checking: .idle
         case .reachable: .online
-        case .unreachable: .offline
+        case .unreachable, .authFailed, .hostNotFound: .offline
         }
     }
 
@@ -189,6 +199,8 @@ enum HostStatus {
         case .checking: "Checking…"
         case .reachable: "Connected"
         case .unreachable: "Unreachable"
+        case .authFailed: "Auth failed"
+        case .hostNotFound: "Host not found"
         }
     }
 
@@ -196,7 +208,7 @@ enum HostStatus {
         switch self {
         case .checking: .secondary
         case .reachable: .green
-        case .unreachable: .red
+        case .unreachable, .authFailed, .hostNotFound: .red
         }
     }
 }

@@ -32,6 +32,20 @@ final class SFTPBrowserErrorMappingTests: XCTestCase {
         }
     }
 
+    func testUnresolvableHostnameMapsToHostNotFound() {
+        let cases = [
+            "ssh: could not resolve hostname kunst-macbook: nodename nor servname provided",
+            "lookup kunst-macbook: no such host",
+            "name or service not known",
+        ]
+        for text in cases {
+            XCTAssertEqual(
+                SFTPBrowser.classify(text), .hostNotFound,
+                "expected \"\(text)\" to classify as host-not-found"
+            )
+        }
+    }
+
     func testUnrecognizedErrorReturnsNil() {
         XCTAssertNil(SFTPBrowser.classify("some entirely unrelated failure"))
     }

@@ -90,7 +90,7 @@ struct RemoteDocumentView: View {
 
         guard let credentials = appState.credentials(for: host) else {
             if !cache.hasCopy(for: file) {
-                phase = .failed(SFTPBrowserError.missingCredentials.localizedDescription ?? "Missing credentials.")
+                phase = .failed(SFTPBrowserError.missingCredentials.localizedDescription)
             } else {
                 isOffline = true
             }
@@ -100,7 +100,7 @@ struct RemoteDocumentView: View {
         do {
             let data = try await SFTPBrowser.shared.readFile(host: host, credentials: credentials, path: file.path)
             guard let text = String(data: data, encoding: .utf8) else {
-                phase = .failed(SFTPBrowserError.notReadable.localizedDescription ?? "Not readable.")
+                phase = .failed(SFTPBrowserError.notReadable.localizedDescription)
                 return
             }
             cache.store(text, for: file)
