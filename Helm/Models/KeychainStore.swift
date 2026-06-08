@@ -25,6 +25,9 @@ struct KeychainStore {
         if status == errSecItemNotFound {
             var item = query
             item[kSecValueData as String] = data
+            // SSH key material stays on this device (never syncs to iCloud Keychain) and
+            // is readable after first unlock so background reconnects work while locked.
+            item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
             return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
         }
 

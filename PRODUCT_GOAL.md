@@ -7,7 +7,7 @@ It runs on iPhone and iPad. It connects to hosts you add — there is nothing ha
 ## Shape
 
 - **Hosts** mirror an `~/.ssh/config` entry: nickname, hostname (a Tailscale `100.x` IP or MagicDNS name), port, username, auth, and a starting directory.
-- **Authentication** is an SSH private key (OpenSSH ed25519 or RSA, optional passphrase) or a password. Secrets live in the iOS Keychain, never in UserDefaults or the app bundle.
+- **Authentication** is an SSH private key (OpenSSH ed25519 or RSA, optional passphrase) or a password. Secrets live in the iOS Keychain (device-bound, not iCloud-synced), never in UserDefaults or the app bundle.
 - **Browsing** is directory-scoped over SFTP, starting at the host's start directory. Only sub-directories and `.md`/`.markdown`/`.html` files are shown — Helm is a reader, not a file manager.
 - **Reading** renders Markdown through swift-markdown into styled HTML in a `WKWebView` (light/dark aware); `.html` files render directly. Read-aloud and favorites are available per file.
 - **Favorites / shortcuts** save individual files *and folders* across all hosts; shortcuts sit on the home screen for one-tap access (folders deep-link into the browser, files open the reader).

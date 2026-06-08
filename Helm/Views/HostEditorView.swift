@@ -37,7 +37,7 @@ struct HostEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Connection") {
+                Section {
                     TextField("Nickname", text: $nickname)
                         .textInputAutocapitalization(.never)
                     TextField("Hostname or 100.x IP", text: $hostname)
@@ -48,6 +48,10 @@ struct HostEditorView: View {
                     TextField("Username", text: $username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                } header: {
+                    Text("Connection")
+                } footer: {
+                    Text("Use the full Tailscale name (host.tailnet.ts.net) or a 100.x address. A bare short name may not resolve on iOS and the host won't be reachable.")
                 }
 
                 Section {

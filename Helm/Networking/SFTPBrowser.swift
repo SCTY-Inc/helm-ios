@@ -308,21 +308,39 @@ final class SFTPBrowser: @unchecked Sendable {
 
     // MARK: - Error mapping
 
+    /// User-facing message for any "couldn't open the socket" failure (connect refused,
+    /// DNS miss, timeout, dropped tunnel). Shared so the wording stays consistent.
+    static let unreachableMessage = "Couldn't reach the host. Check that it's online and that Tailscale is connected on this device."
+
     private static func map(_ error: Error) -> SFTPBrowserError {
         if let browserError = error as? SFTPBrowserError {
             return browserError
         }
 
-        let description = String(describing: error).lowercased()
+        // Some NIO/SSH errors carry their useful text only in `localizedDescription` —
+        // e.g. NIOConnectionError bridges to the opaque "(NIOPosix.NIOConnectionError
+        // error 1.)" string and its `String(describing:)` lacks the type name. Search
+        // both so a connection failure isn't misreported as an unknown `.underlying`.
+        let haystack = "\(String(describing: error)) \(error.localizedDescription)".lowercased()
+        return classify(haystack) ?? .underlying(error.localizedDescription)
+    }
+
+    /// Classifies a lowercased error description into a known browser error, or nil when
+    /// unrecognized. Split out from `map` so the keyword matching is unit-testable
+    /// without having to fabricate real NIO socket errors.
+    static func classify(_ description: String) -> SFTPBrowserError? {
         if description.contains("auth") || description.contains("permission denied") {
             return .authenticationFailed
         }
-        if description.contains("refused") || description.contains("timed out")
-            || description.contains("timeout") || description.contains("unreachable")
-            || description.contains("connect") || description.contains("closed")
-            || description.contains("notconnected") || description.contains("eof") {
-            return .connectionFailed("Couldn't reach the host. Check that it's online and that Tailscale is connected on this device.")
+        for keyword in connectionFailureKeywords where description.contains(keyword) {
+            return .connectionFailed(unreachableMessage)
         }
-        return .underlying(error.localizedDescription)
+        return nil
     }
+
+    private static let connectionFailureKeywords = [
+        "refused", "timed out", "timeout", "unreachable", "connect", "closed",
+        "notconnected", "eof", "nioconnectionerror", "dns", "name resolution",
+        "no route", "host is down", "network is down"
+    ]
 }
