@@ -13,6 +13,14 @@ struct FileBrowserView: View {
     @State private var searchText = ""
     @State private var searchResults: [SearchHit]?
     @State private var isSearching = false
+    @State private var searchOrder: SearchOrder = .newest
+
+    private enum SearchOrder: String, CaseIterable, Identifiable {
+        case newest = "Newest first"
+        case oldest = "Oldest first"
+
+        var id: String { rawValue }
+    }
 
     private enum Phase {
         case loading
@@ -39,6 +47,18 @@ struct FileBrowserView: View {
                     isFavorite ? "Remove Shortcut" : "Add Shortcut",
                     systemImage: isFavorite ? "star.fill" : "star"
                 )
+            }
+
+            if searchResults != nil {
+                Menu {
+                    Picker("Chronology", selection: $searchOrder) {
+                        ForEach(SearchOrder.allCases) { order in
+                            Text(order.rawValue).tag(order)
+                        }
+                    }
+                } label: {
+                    Label("Sort by date", systemImage: "calendar")
+                }
             }
         }
         .searchable(text: $searchText, prompt: "Search this folder")
@@ -94,15 +114,23 @@ struct FileBrowserView: View {
                 description: Text("No Markdown or HTML files under this folder contain “\(searchText)”.")
             )
         } else {
-            List(results) { hit in
+            List(sortedSearchResults(results)) { hit in
                 NavigationLink {
                     RemoteDocumentView(
                         host: host,
                         file: RemoteFileReference(hostID: host.id, path: hit.path, title: hit.name)
                     )
                 } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(hit.name).font(.body)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(hit.name).font(.body)
+                            Spacer()
+                            if let modified = hit.modified {
+                                Text(modified, format: .relative(presentation: .named))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         Text(hit.path)
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
@@ -112,6 +140,27 @@ struct FileBrowserView: View {
                 }
             }
             .listStyle(.plain)
+        }
+    }
+
+    private func sortedSearchResults(_ results: [SearchHit]) -> [SearchHit] {
+        switch searchOrder {
+        case .newest:
+            results.sorted(by: SearchHit.newestFirst)
+        case .oldest:
+            results.sorted { lhs, rhs in
+                switch (lhs.modified, rhs.modified) {
+                case let (left?, right?):
+                    if left != right { return left < right }
+                    return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
+                case (.some, .none):
+                    return true
+                case (.none, .some):
+                    return false
+                case (.none, .none):
+                    return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
+                }
+            }
         }
     }
 

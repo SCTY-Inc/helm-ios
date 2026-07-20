@@ -9,12 +9,14 @@ struct RootView: View {
         case add
         case edit(SSHHost)
         case settings
+        case record
 
         var id: String {
             switch self {
             case .add: "add"
             case let .edit(host): "edit-\(host.id.uuidString)"
             case .settings: "settings"
+            case .record: "record"
             }
         }
     }
@@ -39,6 +41,13 @@ struct RootView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        activeSheet = .record
+                    } label: {
+                        Image(systemName: "waveform.badge.mic")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
                         activeSheet = .add
                     } label: {
                         Image(systemName: "plus")
@@ -53,6 +62,8 @@ struct RootView: View {
                     HostEditorView(host: host)
                 case .settings:
                     SettingsView()
+                case .record:
+                    RecorderView()
                 }
             }
             .task(id: hostsKey) {

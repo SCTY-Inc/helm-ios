@@ -38,6 +38,7 @@ enum SFTPBrowserError: LocalizedError, Equatable {
     case hostNotFound
     case connectionFailed(String)
     case notReadable
+    case editConflict
     case underlying(String)
 
     var errorDescription: String? {
@@ -54,6 +55,8 @@ enum SFTPBrowserError: LocalizedError, Equatable {
             message
         case .notReadable:
             "This file couldn't be read as text."
+        case .editConflict:
+            "This page changed on the machine while you were editing. Reopen it and apply your changes again."
         case let .underlying(message):
             message
         }
@@ -64,7 +67,23 @@ enum SFTPBrowserError: LocalizedError, Equatable {
 struct SearchHit: Identifiable, Hashable, Sendable {
     let path: String
     let name: String
+    let modified: Date?
+
     var id: String { path }
+
+    static func newestFirst(_ lhs: SearchHit, _ rhs: SearchHit) -> Bool {
+        switch (lhs.modified, rhs.modified) {
+        case let (left?, right?):
+            if left != right { return left > right }
+            return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
+        case (.some, .none):
+            return true
+        case (.none, .some):
+            return false
+        case (.none, .none):
+            return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
+        }
+    }
 }
 
 /// Reads remote machines over SFTP, caching one live connection per host so
@@ -125,7 +144,16 @@ final class SFTPBrowser: @unchecked Sendable {
         return try await perform(host: host, credentials: credentials) { connection in
             let buffer = try await connection.client.executeCommand(command)
             let output = String(buffer: buffer)
-            return Self.parseSearchHits(output)
+            var datedHits: [SearchHit] = []
+            for hit in Self.parseSearchHits(output) {
+                let attributes = try? await connection.sftp.getAttributes(at: hit.path)
+                datedHits.append(SearchHit(
+                    path: hit.path,
+                    name: hit.name,
+                    modified: attributes?.accessModificationTime?.modificationTime
+                ))
+            }
+            return datedHits.sorted(by: SearchHit.newestFirst)
         }
     }
 
@@ -139,6 +167,52 @@ final class SFTPBrowser: @unchecked Sendable {
             return nil
         } catch {
             return Self.map(error)
+        }
+    }
+
+    /// Ensures `directory` exists, writes `data` to a collision-safe filename
+    /// inside it, and returns the full path written.
+    func writeFile(host: SSHHost, credentials: ResolvedCredentials, directory: String, filename: String, data: Data) async throws -> String {
+        try await perform(host: host, credentials: credentials) { connection in
+            _ = try await connection.client.executeCommand("mkdir -p -- \(Self.shellQuote(directory))")
+
+            let names = try await connection.sftp.listDirectory(atPath: directory)
+            let existing = Set(names.flatMap(\.components).map(\.filename))
+
+            let finalName = Self.uniqueFilename(filename, existing: existing)
+            let fullPath = Self.join(directory, finalName)
+            try await Self.write(data, to: fullPath, using: connection.sftp)
+            return fullPath
+        }
+    }
+
+    /// Replaces an existing document only when its remote contents still match
+    /// the version the editor opened, preventing silent overwrites.
+    func replaceFile(
+        host: SSHHost,
+        credentials: ResolvedCredentials,
+        path: String,
+        expected: Data,
+        replacement: Data
+    ) async throws {
+        try await perform(host: host, credentials: credentials) { connection in
+            let currentFile = try await connection.sftp.openFile(filePath: path, flags: .read)
+            let currentBuffer = try await currentFile.readAll()
+            try? await currentFile.close()
+            guard Data(currentBuffer.readableBytesView) == expected else {
+                throw SFTPBrowserError.editConflict
+            }
+
+            let directory = (path as NSString).deletingLastPathComponent
+            let temporaryName = ".helm-edit-\(UUID().uuidString.lowercased())"
+            let temporaryPath = Self.join(directory.isEmpty ? "." : directory, temporaryName)
+            do {
+                try await Self.write(replacement, to: temporaryPath, using: connection.sftp)
+                try await connection.sftp.rename(at: temporaryPath, to: path)
+            } catch {
+                try? await connection.sftp.remove(at: temporaryPath)
+                throw error
+            }
         }
     }
 
@@ -240,7 +314,7 @@ final class SFTPBrowser: @unchecked Sendable {
 
     private static func entry(from component: SFTPPathComponent, parentPath: String) -> RemoteFileEntry? {
         let name = component.filename
-        guard name != ".", name != ".." else {
+        guard name != ".", name != "..", name != ".helm" else {
             return nil
         }
 
@@ -268,6 +342,45 @@ final class SFTPBrowser: @unchecked Sendable {
             return (permissions & 0o170000) == 0o040000
         }
         return component.longname.first == "d"
+    }
+
+    private static func write(_ data: Data, to path: String, using sftp: SFTPClient) async throws {
+        let file = try await sftp.openFile(filePath: path, flags: [.write, .create, .truncate])
+        do {
+            var buffer = ByteBufferAllocator().buffer(capacity: data.count)
+            buffer.writeBytes(data)
+            try await file.write(buffer, at: 0)
+            try await file.close()
+        } catch {
+            try? await file.close()
+            throw error
+        }
+    }
+
+    /// Picks a filename that doesn't collide with `existing`, inserting "-2",
+    /// "-3", ... before the extension (split on the last dot) until it's free.
+    /// A dotfile with no stem (e.g. ".md") is treated as having no extension,
+    /// so the whole name is the stem: ".md" -> ".md-2".
+    static func uniqueFilename(_ filename: String, existing: Set<String>) -> String {
+        guard existing.contains(filename) else { return filename }
+
+        let stem: String
+        let ext: String
+        if let dotIndex = filename.lastIndex(of: "."), dotIndex != filename.startIndex {
+            stem = String(filename[filename.startIndex..<dotIndex])
+            ext = String(filename[dotIndex...])
+        } else {
+            stem = filename
+            ext = ""
+        }
+
+        var counter = 2
+        var candidate = "\(stem)-\(counter)\(ext)"
+        while existing.contains(candidate) {
+            counter += 1
+            candidate = "\(stem)-\(counter)\(ext)"
+        }
+        return candidate
     }
 
     static func join(_ base: String, _ name: String) -> String {
@@ -303,7 +416,7 @@ final class SFTPBrowser: @unchecked Sendable {
             .filter { !$0.isEmpty }
             .map { path in
                 let name = (path as NSString).lastPathComponent
-                return SearchHit(path: path, name: name)
+                return SearchHit(path: path, name: name, modified: nil)
             }
     }
 

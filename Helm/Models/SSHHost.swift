@@ -62,4 +62,14 @@ struct SSHHost: Identifiable, Codable, Hashable, Sendable {
         let trimmed = startPath.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "." : trimmed
     }
+
+    func path(relativeToStart path: String) -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.hasPrefix("/") else { return trimmed }
+        guard normalizedStartPath != "." else { return trimmed.isEmpty ? "." : trimmed }
+        guard !trimmed.isEmpty else { return normalizedStartPath }
+        return normalizedStartPath.hasSuffix("/")
+            ? normalizedStartPath + trimmed
+            : normalizedStartPath + "/" + trimmed
+    }
 }

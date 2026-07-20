@@ -42,7 +42,12 @@ struct RemoteDocumentView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .markdown(text):
             reader {
-                MarkdownReaderView(file: file, markdown: text, onOpenDocument: open)
+                MarkdownReaderView(
+                    file: file,
+                    markdown: text,
+                    onOpenDocument: open,
+                    onMarkdownSaved: showSavedMarkdown
+                )
             }
         case let .html(text):
             reader {
@@ -115,6 +120,12 @@ struct RemoteDocumentView: View {
                 phase = .failed(error.localizedDescription)
             }
         }
+    }
+
+    private func showSavedMarkdown(_ text: String) {
+        cache.store(text, for: file)
+        phase = .markdown(text)
+        isOffline = false
     }
 
     private func render(_ text: String) {

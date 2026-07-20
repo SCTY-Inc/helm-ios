@@ -7,9 +7,18 @@ struct MarkdownReaderView: View {
     let file: RemoteFileReference
     let markdown: String
     var onOpenDocument: ((String) -> Void)? = nil
+    var onMarkdownSaved: ((String) -> Void)? = nil
 
     @State private var scrollAnchor: String?
-    @State private var isAsking = false
+    @State private var activeSheet: ActiveSheet?
+
+    private enum ActiveSheet: String, Identifiable {
+        case edit
+        case suggest
+        case ask
+
+        var id: String { rawValue }
+    }
 
     var body: some View {
         DocumentWebView(
@@ -45,26 +54,53 @@ struct MarkdownReaderView: View {
                 )
             }
 
-            if #available(iOS 26.0, *) {
+            Menu {
                 Button {
-                    isAsking = true
+                    activeSheet = .edit
                 } label: {
-                    Label("Ask", systemImage: "sparkles")
+                    Label("Edit Markdown", systemImage: "pencil")
                 }
-            }
 
-            Button {
-                appState.toggleFavoriteFile(file)
+                Button {
+                    activeSheet = .suggest
+                } label: {
+                    Label("Suggest Change", systemImage: "waveform.badge.mic")
+                }
+
+                if #available(iOS 26.0, *) {
+                    Button {
+                        activeSheet = .ask
+                    } label: {
+                        Label("Ask about this doc", systemImage: "sparkles")
+                    }
+                }
+
+                Button {
+                    appState.toggleFavoriteFile(file)
+                } label: {
+                    Label(
+                        appState.isFavoriteFile(file) ? "Remove Favorite" : "Favorite",
+                        systemImage: appState.isFavoriteFile(file) ? "star.fill" : "star"
+                    )
+                }
             } label: {
-                Label(
-                    appState.isFavoriteFile(file) ? "Remove Favorite" : "Favorite",
-                    systemImage: appState.isFavoriteFile(file) ? "star.fill" : "star"
-                )
+                Label("Page Actions", systemImage: "ellipsis.circle")
             }
         }
-        .sheet(isPresented: $isAsking) {
-            if #available(iOS 26.0, *) {
-                DocumentChatView(title: file.title, documentText: markdown)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .edit:
+                MarkdownEditorView(file: file, markdown: markdown) { updated in
+                    onMarkdownSaved?(updated)
+                }
+            case .suggest:
+                RecorderView(targetFile: file)
+            case .ask:
+                if #available(iOS 26.0, *) {
+                    DocumentChatView(title: file.title, documentText: markdown)
+                } else {
+                    ContentUnavailableView("On-device AI unavailable", systemImage: "sparkles")
+                }
             }
         }
         .onDisappear {

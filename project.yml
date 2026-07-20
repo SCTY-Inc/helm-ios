@@ -31,6 +31,10 @@ targets:
         CFBundleDisplayName: Helm
         UILaunchScreen: {}
         NSLocalNetworkUsageDescription: Helm connects to your machines over your private Tailscale network.
+        NSMicrophoneUsageDescription: Helm records voice notes on device to transcribe into Markdown.
+        NSSpeechRecognitionUsageDescription: Helm transcribes your voice notes to text entirely on device.
+        UIBackgroundModes:
+          - audio
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

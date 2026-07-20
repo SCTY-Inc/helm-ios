@@ -7,6 +7,8 @@ struct HTMLReaderView: View {
     let html: String
     var onOpenDocument: ((String) -> Void)?
 
+    @State private var isSuggesting = false
+
     var body: some View {
         DocumentWebView(
             html: html,
@@ -17,14 +19,27 @@ struct HTMLReaderView: View {
         .navigationTitle(file.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            Button {
-                appState.toggleFavoriteFile(file)
+            Menu {
+                Button {
+                    isSuggesting = true
+                } label: {
+                    Label("Suggest Change", systemImage: "waveform.badge.mic")
+                }
+
+                Button {
+                    appState.toggleFavoriteFile(file)
+                } label: {
+                    Label(
+                        appState.isFavoriteFile(file) ? "Remove Favorite" : "Favorite",
+                        systemImage: appState.isFavoriteFile(file) ? "star.fill" : "star"
+                    )
+                }
             } label: {
-                Label(
-                    appState.isFavoriteFile(file) ? "Remove Favorite" : "Favorite",
-                    systemImage: appState.isFavoriteFile(file) ? "star.fill" : "star"
-                )
+                Label("Page Actions", systemImage: "ellipsis.circle")
             }
+        }
+        .sheet(isPresented: $isSuggesting) {
+            RecorderView(targetFile: file)
         }
     }
 }
