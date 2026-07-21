@@ -8,7 +8,7 @@ It runs on iPhone and iPad. It connects to hosts you add — there is nothing ha
 
 - **Hosts** mirror an `~/.ssh/config` entry: nickname, hostname (a Tailscale `100.x` IP or MagicDNS name), port, username, auth, and a starting directory.
 - **Authentication** is an SSH private key (OpenSSH ed25519 or RSA, optional passphrase) or a password. Secrets live in the iOS Keychain (device-bound, not iCloud-synced), never in UserDefaults or the app bundle.
-- **Browsing** is directory-scoped over SFTP, starting at the host's start directory. Only sub-directories and `.md`/`.markdown`/`.html` files are shown — Helm is a wiki client, not a file manager. Full-text results carry remote modification dates and can be searched newest- or oldest-first.
+- **Browsing** is directory-scoped over SFTP, starting at the host's start directory. Only sub-directories and `.md`/`.markdown`/`.html` files are shown — Helm is a wiki client, not a file manager. Directory listings and full-text results carry remote modification dates and can be sorted newest- or oldest-first.
 - **Reading and writing** renders Markdown through swift-markdown into styled HTML in a `WKWebView` (light/dark aware); `.html` files render directly. Markdown can be edited with conflict detection and saved back over SFTP. Read-aloud and favorites are available per file.
 - **Voice notes** record from the device microphone, transcribe on device using Apple Speech, format the transcript as Markdown with YAML front matter, and save it under the configured wiki root's `transcripts` folder over SFTP by default.
 - **Change requests** attach spoken feedback to the page being read. Helm writes a structured, reviewable request under `.helm/requests/pending`; Markdown targets can also be edited directly, while HTML requests tell the machine-side agent to locate the canonical source instead of blindly editing generated output.
@@ -27,7 +27,7 @@ Helm requires the Tailscale app installed and connected on the device to provide
 ## App Requirements
 
 - Add / edit / delete hosts, with key import (paste or Files) and Keychain-backed secrets.
-- SFTP directory browser with folder navigation and Markdown/HTML filtering.
+- SFTP directory browser with folder navigation, Markdown/HTML filtering, and newest-/oldest-first chronology.
 - Native Markdown reader (rendered as styled HTML) and HTML reader.
 - Favorites/shortcuts for files and folders, surfaced on the home screen.
 - Live host reachability status; clear unreachable / auth-failed / not-found states.

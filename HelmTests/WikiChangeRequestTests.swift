@@ -59,5 +59,32 @@ struct WikiChangeRequestTests {
         let unknown = SearchHit(path: "unknown.md", name: "unknown.md", modified: nil)
 
         #expect([older, unknown, newer].sorted(by: SearchHit.newestFirst).map(\.path) == ["newer.md", "older.md", "unknown.md"])
+        #expect([older, unknown, newer].sorted(by: SearchHit.oldestFirst).map(\.path) == ["older.md", "newer.md", "unknown.md"])
+    }
+
+    @Test("Directory entries support chronological browsing in both directions")
+    func chronologicalDirectorySort() {
+        let older = RemoteFileEntry(
+            name: "older.md",
+            path: "/wiki/older.md",
+            kind: .markdown,
+            modified: Date(timeIntervalSince1970: 10)
+        )
+        let newerFolder = RemoteFileEntry(
+            name: "newer-folder",
+            path: "/wiki/newer-folder",
+            kind: .directory,
+            modified: Date(timeIntervalSince1970: 20)
+        )
+        let unknown = RemoteFileEntry(
+            name: "unknown.md",
+            path: "/wiki/unknown.md",
+            kind: .markdown,
+            modified: nil
+        )
+
+        let entries = [older, unknown, newerFolder]
+        #expect(entries.sorted(by: RemoteFileEntry.newestFirst).map(\.path) == ["/wiki/newer-folder", "/wiki/older.md", "/wiki/unknown.md"])
+        #expect(entries.sorted(by: RemoteFileEntry.oldestFirst).map(\.path) == ["/wiki/older.md", "/wiki/newer-folder", "/wiki/unknown.md"])
     }
 }

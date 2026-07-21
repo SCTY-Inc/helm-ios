@@ -11,6 +11,7 @@ struct MarkdownEditorView: View {
     @State private var text: String
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var isConfirmingDiscard = false
 
     init(file: RemoteFileReference, markdown: String, onSaved: @escaping (String) -> Void) {
         self.file = file
@@ -28,7 +29,7 @@ struct MarkdownEditorView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { dismiss() }
+                        Button("Cancel") { cancel() }
                             .disabled(isSaving)
                     }
                     ToolbarItem(placement: .confirmationAction) {
@@ -48,8 +49,16 @@ struct MarkdownEditorView: View {
                 } message: {
                     Text(errorMessage ?? "Unknown error")
                 }
+                .confirmationDialog(
+                    "Discard your changes?",
+                    isPresented: $isConfirmingDiscard,
+                    titleVisibility: .visible
+                ) {
+                    Button("Discard Changes", role: .destructive) { dismiss() }
+                    Button("Keep Editing", role: .cancel) {}
+                }
         }
-        .interactiveDismissDisabled(isSaving)
+        .interactiveDismissDisabled(isSaving || text != originalText)
     }
 
     private var errorBinding: Binding<Bool> {
@@ -57,6 +66,14 @@ struct MarkdownEditorView: View {
             get: { errorMessage != nil },
             set: { if $0 == false { errorMessage = nil } }
         )
+    }
+
+    private func cancel() {
+        if text == originalText {
+            dismiss()
+        } else {
+            isConfirmingDiscard = true
+        }
     }
 
     private func save() async {

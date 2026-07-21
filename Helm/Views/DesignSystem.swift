@@ -1,38 +1,25 @@
 import SwiftUI
 
-/// A small status dot used in list rows to convey reachability at a glance
-/// without coloring entire icons. Green = healthy, amber = partial, red =
-/// unreachable, gray = idle/unchecked.
-struct StatusDot: View {
-    enum Level {
-        case online
-        case partial
-        case offline
-        case idle
-
-        var color: Color {
-            switch self {
-            case .online: .green
-            case .partial: .orange
-            case .offline: .red
-            case .idle: Color.secondary.opacity(0.4)
-            }
-        }
-    }
-
-    let level: Level
-    var diameter: CGFloat = 8
+struct HelmSymbolBadge: View {
+    let systemImage: String
+    var tint: Color = .accentColor
+    var size: CGFloat = 32
 
     var body: some View {
-        Circle()
-            .fill(level.color)
-            .frame(width: diameter, height: diameter)
-            .overlay(
-                Circle()
-                    .stroke(level.color.opacity(level == .idle ? 0 : 0.25), lineWidth: 3)
-                    .scaleEffect(1.6)
-            )
+        Image(systemName: systemImage)
+            .font(.system(size: size * 0.48, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: size, height: size)
+            .background(tint.opacity(0.1), in: .rect(cornerRadius: size * 0.3))
             .accessibilityHidden(true)
+    }
+}
+
+struct HelmPressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
     }
 }
 

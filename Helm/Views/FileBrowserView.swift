@@ -13,13 +13,20 @@ struct FileBrowserView: View {
     @State private var searchText = ""
     @State private var searchResults: [SearchHit]?
     @State private var isSearching = false
-    @State private var searchOrder: SearchOrder = .newest
+    @State private var chronologyOrder: ChronologyOrder = .newest
 
-    private enum SearchOrder: String, CaseIterable, Identifiable {
+    private enum ChronologyOrder: String, CaseIterable, Identifiable {
         case newest = "Newest first"
         case oldest = "Oldest first"
 
         var id: String { rawValue }
+
+        var systemImage: String {
+            switch self {
+            case .newest: "arrow.down"
+            case .oldest: "arrow.up"
+            }
+        }
     }
 
     private enum Phase {
@@ -49,16 +56,14 @@ struct FileBrowserView: View {
                 )
             }
 
-            if searchResults != nil {
-                Menu {
-                    Picker("Chronology", selection: $searchOrder) {
-                        ForEach(SearchOrder.allCases) { order in
-                            Text(order.rawValue).tag(order)
-                        }
+            Menu {
+                Picker("Chronology", selection: $chronologyOrder) {
+                    ForEach(ChronologyOrder.allCases) { order in
+                        Text(order.rawValue).tag(order)
                     }
-                } label: {
-                    Label("Sort by date", systemImage: "calendar")
                 }
+            } label: {
+                Label(chronologyOrder.rawValue, systemImage: chronologyOrder.systemImage)
             }
         }
         .searchable(text: $searchText, prompt: "Search this folder")
@@ -87,7 +92,7 @@ struct FileBrowserView: View {
                     description: Text("This folder has no sub-folders or Markdown/HTML files.")
                 )
             } else {
-                List(entries) { entry in
+                List(sortedEntries(entries)) { entry in
                     row(for: entry)
                 }
                 .listStyle(.plain)
@@ -121,13 +126,15 @@ struct FileBrowserView: View {
                         file: RemoteFileReference(hostID: host.id, path: hit.path, title: hit.name)
                     )
                 } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(hit.name).font(.body)
-                            Spacer()
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(hit.name)
+                                .font(.body)
+                                .lineLimit(1)
+                            Spacer(minLength: 8)
                             if let modified = hit.modified {
                                 Text(modified, format: .relative(presentation: .named))
-                                    .font(.caption2)
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -137,30 +144,29 @@ struct FileBrowserView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                    .padding(.vertical, 2)
+                    .accessibilityElement(children: .combine)
                 }
             }
             .listStyle(.plain)
         }
     }
 
+    private func sortedEntries(_ entries: [RemoteFileEntry]) -> [RemoteFileEntry] {
+        switch chronologyOrder {
+        case .newest:
+            entries.sorted(by: RemoteFileEntry.newestFirst)
+        case .oldest:
+            entries.sorted(by: RemoteFileEntry.oldestFirst)
+        }
+    }
+
     private func sortedSearchResults(_ results: [SearchHit]) -> [SearchHit] {
-        switch searchOrder {
+        switch chronologyOrder {
         case .newest:
             results.sorted(by: SearchHit.newestFirst)
         case .oldest:
-            results.sorted { lhs, rhs in
-                switch (lhs.modified, rhs.modified) {
-                case let (left?, right?):
-                    if left != right { return left < right }
-                    return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
-                case (.some, .none):
-                    return true
-                case (.none, .some):
-                    return false
-                case (.none, .none):
-                    return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
-                }
-            }
+            results.sorted(by: SearchHit.oldestFirst)
         }
     }
 
@@ -231,29 +237,27 @@ private struct FileRow: View {
     let entry: RemoteFileEntry
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: entry.systemImage)
-                .font(.title3)
-                .foregroundStyle(entry.isDirectory ? Color.accentColor : .secondary)
-                .frame(width: 26)
+        HStack(spacing: 12) {
+            HelmSymbolBadge(
+                systemImage: entry.systemImage,
+                tint: entry.isDirectory ? .accentColor : .secondary,
+                size: 34
+            )
 
             Text(entry.name)
                 .font(.body)
+                .lineLimit(2)
 
-            Spacer()
+            Spacer(minLength: 8)
 
             if let modified = entry.modified {
                 Text(modified, format: .relative(presentation: .named))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-
-            if entry.isDirectory {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
+        .accessibilityElement(children: .combine)
     }
 }

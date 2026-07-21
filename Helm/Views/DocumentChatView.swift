@@ -75,6 +75,7 @@ struct DocumentChatView: View {
                 TextField("Ask a question", text: $question, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...4)
+                    .submitLabel(.send)
                     .onSubmit { Task { await ask() } }
 
                 Button {
@@ -82,10 +83,14 @@ struct DocumentChatView: View {
                 } label: {
                     if isThinking {
                         ProgressView()
+                            .frame(width: 30, height: 30)
                     } else {
-                        Image(systemName: "arrow.up.circle.fill").font(.title2)
+                        Label("Send", systemImage: "arrow.up.circle.fill")
+                            .labelStyle(.iconOnly)
+                            .font(.title2)
                     }
                 }
+                .buttonStyle(HelmPressableButtonStyle())
                 .disabled(question.trimmingCharacters(in: .whitespaces).isEmpty || isThinking)
             }
             .padding()

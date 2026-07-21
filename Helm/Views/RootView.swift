@@ -33,24 +33,20 @@ struct RootView: View {
             .navigationTitle("Helm")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
+                    Button("Settings", systemImage: "gearshape") {
                         activeSheet = .settings
-                    } label: {
-                        Image(systemName: "gearshape")
+                    }
+                }
+                if !appState.hosts.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Record Voice Note", systemImage: "waveform.badge.mic") {
+                            activeSheet = .record
+                        }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        activeSheet = .record
-                    } label: {
-                        Image(systemName: "waveform.badge.mic")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
+                    Button("Add Host", systemImage: "plus") {
                         activeSheet = .add
-                    } label: {
-                        Image(systemName: "plus")
                     }
                 }
             }
@@ -126,10 +122,11 @@ struct RootView: View {
                 }
             } label: {
                 HStack(spacing: 12) {
-                    Image(systemName: favorite.systemImage)
-                        .foregroundStyle(favorite.kind == .directory ? Color.accentColor : .secondary)
-                        .frame(width: 22)
-                    VStack(alignment: .leading, spacing: 1) {
+                    HelmSymbolBadge(
+                        systemImage: favorite.systemImage,
+                        tint: favorite.kind == .directory ? .accentColor : .secondary
+                    )
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(favorite.title).font(.body)
                         Text("\(host.displayName) · \(favorite.path)")
                             .font(.caption)
@@ -174,12 +171,14 @@ struct RootView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No hosts yet", systemImage: "server.rack")
+            Label("Your wiki, anywhere", systemImage: "server.rack")
         } description: {
-            Text("Add a machine on your tailnet to browse its Markdown and HTML files over SSH.")
+            Text("Connect a machine on your tailnet to browse, read, and capture notes over SSH.")
         } actions: {
-            Button { activeSheet = .add } label: { Text("Add Host") }
-                .buttonStyle(.borderedProminent)
+            Button("Add Your First Host", systemImage: "plus") {
+                activeSheet = .add
+            }
+            .buttonStyle(.borderedProminent)
         }
     }
 }
@@ -194,14 +193,6 @@ enum HostStatus {
         case .authenticationFailed: self = .authFailed
         case .hostNotFound: self = .hostNotFound
         default: self = .unreachable
-        }
-    }
-
-    var dotLevel: StatusDot.Level {
-        switch self {
-        case .checking: .idle
-        case .reachable: .online
-        case .unreachable, .authFailed, .hostNotFound: .offline
         }
     }
 
@@ -222,6 +213,16 @@ enum HostStatus {
         case .unreachable, .authFailed, .hostNotFound: .red
         }
     }
+
+    var systemImage: String {
+        switch self {
+        case .checking: "clock"
+        case .reachable: "checkmark.circle.fill"
+        case .unreachable: "wifi.slash"
+        case .authFailed: "lock.trianglebadge.exclamationmark"
+        case .hostNotFound: "questionmark.circle"
+        }
+    }
 }
 
 private struct HostRow: View {
@@ -229,21 +230,17 @@ private struct HostRow: View {
     let status: HostStatus
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "server.rack")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .frame(width: 26)
+        HStack(spacing: 12) {
+            HelmSymbolBadge(systemImage: "server.rack", tint: .secondary, size: 36)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(host.displayName).font(.headline)
-                    StatusDot(level: status.dotLevel)
-                }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(host.displayName)
+                    .font(.headline)
                 Text(host.subtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text(status.label)
+                    .lineLimit(1)
+                Label(status.label, systemImage: status.systemImage)
                     .font(.caption)
                     .foregroundStyle(status.labelColor)
             }

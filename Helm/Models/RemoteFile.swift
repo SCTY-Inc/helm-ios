@@ -51,4 +51,30 @@ struct RemoteFileEntry: Identifiable, Hashable, Sendable {
         case .html: "doc.richtext"
         }
     }
+
+    static func newestFirst(_ lhs: RemoteFileEntry, _ rhs: RemoteFileEntry) -> Bool {
+        compare(lhs, rhs, newestFirst: true)
+    }
+
+    static func oldestFirst(_ lhs: RemoteFileEntry, _ rhs: RemoteFileEntry) -> Bool {
+        compare(lhs, rhs, newestFirst: false)
+    }
+
+    private static func compare(
+        _ lhs: RemoteFileEntry,
+        _ rhs: RemoteFileEntry,
+        newestFirst: Bool
+    ) -> Bool {
+        switch (lhs.modified, rhs.modified) {
+        case let (left?, right?):
+            if left != right { return newestFirst ? left > right : left < right }
+            return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
+        case (.some, .none):
+            return true
+        case (.none, .some):
+            return false
+        case (.none, .none):
+            return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
+        }
+    }
 }

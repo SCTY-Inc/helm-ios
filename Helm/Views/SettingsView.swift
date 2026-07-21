@@ -19,15 +19,13 @@ struct SettingsView: View {
             Form {
                 Section {
                     Stepper(value: $textScalePercent, in: scaleRange, step: scaleStep) {
-                        HStack {
-                            Text("Text Size")
-                            Spacer()
-                            Text("\(textScalePercent)%").foregroundStyle(.secondary)
-                        }
+                        LabeledContent("Text Size", value: "\(textScalePercent)%")
                     }
                     Text("The quick brown fox jumps over the lazy dog.")
                         .font(.system(size: 17 * CGFloat(textScalePercent) / 100))
                         .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 4)
                 } header: {
                     Text("Reading")
                 }
@@ -37,11 +35,7 @@ struct SettingsView: View {
                         cache.clearAll()
                         cacheBytes = 0
                     } label: {
-                        HStack {
-                            Text("Clear Cached Files")
-                            Spacer()
-                            Text(cacheLabel).foregroundStyle(.secondary)
-                        }
+                        LabeledContent("Clear Cached Files", value: cacheLabel)
                     }
                     .disabled(cacheBytes == 0)
                 } header: {

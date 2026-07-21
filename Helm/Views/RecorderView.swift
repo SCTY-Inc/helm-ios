@@ -18,9 +18,11 @@ struct RecorderView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Close") { dismiss() }
+                            .disabled(isDismissDisabled)
                     }
                 }
         }
+        .interactiveDismissDisabled(isDismissDisabled)
         .task {
             if session == nil {
                 let session = CaptureSession(appState: appState, targetFile: targetFile)
@@ -58,23 +60,49 @@ struct RecorderView: View {
         }
     }
 
+    private var isDismissDisabled: Bool {
+        guard let session else { return true }
+        switch session.phase {
+        case .preparing, .recording, .transcribing, .cleaning, .saving:
+            return true
+        case .idle, .review, .done, .failed:
+            return false
+        }
+    }
+
     // MARK: - Idle
 
     private func idleView(_ session: CaptureSession) -> some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 18) {
             Spacer()
+
             Button {
                 Task { await session.startRecording() }
             } label: {
-                Image(systemName: "mic.circle.fill")
-                    .font(.system(size: 88))
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 96, height: 96)
+                    .background(Color.accentColor, in: .circle)
+                    .shadow(color: Color.accentColor.opacity(0.22), radius: 18, y: 8)
             }
-            .buttonStyle(.plain)
-            Text(targetFile == nil ? "Tap to start recording" : "Describe what should change")
+            .buttonStyle(HelmPressableButtonStyle())
+            .accessibilityLabel("Start Recording")
+
+            Text(targetFile == nil ? "Capture a voice note" : "Describe the change")
+                .font(.title3.bold())
+
+            Text(targetFile == nil
+                 ? "Helm transcribes privately on this device, then lets you review before saving."
+                 : "Your recording becomes a reviewable request attached to this page.")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
+
             Spacer()
         }
-        .padding()
+        .padding(24)
     }
 
     // MARK: - Recording
@@ -82,25 +110,49 @@ struct RecorderView: View {
     private func recordingView(_ session: CaptureSession) -> some View {
         VStack(spacing: 24) {
             Spacer()
-            Text(formattedElapsed(session.recorder.elapsed))
-                .font(.system(size: 44, weight: .medium, design: .monospaced))
-                .monospacedDigit()
 
-            levelIndicator(session.recorder.averagePower)
-                .frame(height: 8)
-                .padding(.horizontal, 40)
+            Label("Recording", systemImage: "waveform")
+                .font(.subheadline.bold())
+                .foregroundStyle(.red)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Color.red.opacity(0.1), in: .capsule)
+
+            Text(formattedElapsed(session.recorder.elapsed))
+                .font(.system(size: 48, weight: .medium, design: .rounded))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("INPUT LEVEL")
+                    .font(.caption2.bold())
+                    .tracking(0.8)
+                    .foregroundStyle(.secondary)
+                levelIndicator(session.recorder.averagePower)
+                    .frame(height: 8)
+            }
+            .frame(maxWidth: 300)
 
             Button {
                 Task { await session.stopAndProcess() }
             } label: {
-                Image(systemName: "stop.circle.fill")
-                    .font(.system(size: 72))
-                    .foregroundStyle(.red)
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 25, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 76, height: 76)
+                    .background(Color.red, in: .circle)
+                    .shadow(color: Color.red.opacity(0.2), radius: 16, y: 7)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HelmPressableButtonStyle())
+            .accessibilityLabel("Stop Recording")
+
+            Text("Tap stop when you’re finished")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
             Spacer()
         }
-        .padding()
+        .padding(24)
     }
 
     private func levelIndicator(_ averagePower: Float) -> some View {
@@ -127,22 +179,30 @@ struct RecorderView: View {
         VStack(spacing: 16) {
             Spacer()
             ProgressView()
-            Text(label).foregroundStyle(.secondary)
+                .controlSize(.large)
+            Text(label)
+                .font(.headline)
+            Text("Keep Helm open while this finishes.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             Spacer()
         }
-        .padding()
+        .padding(24)
     }
 
     // MARK: - Review
 
     private func reviewView(_ session: CaptureSession) -> some View {
         VStack(spacing: 0) {
-            Text(destinationLabel(filename: session.draftFilename))
-                .font(.caption)
+            Label(destinationLabel(filename: session.draftFilename), systemImage: "arrow.up.doc")
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.thinMaterial)
 
             TextEditor(text: Binding(
                 get: { session.draftMarkdown },
@@ -188,10 +248,9 @@ struct RecorderView: View {
     private func doneView(path: String) -> some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(.green)
-            Text(targetFile == nil ? "Saved" : "Request queued").font(.headline)
+            HelmSymbolBadge(systemImage: "checkmark", tint: .green, size: 64)
+            Text(targetFile == nil ? "Voice note saved" : "Change request queued")
+                .font(.title3.bold())
             Text(path)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -208,9 +267,9 @@ struct RecorderView: View {
     private func failedView(_ session: CaptureSession, message: String) -> some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.red)
+            HelmSymbolBadge(systemImage: "exclamationmark.triangle.fill", tint: .red, size: 64)
+            Text("Something went wrong")
+                .font(.title3.bold())
             Text(message)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)

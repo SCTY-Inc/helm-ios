@@ -20,7 +20,7 @@ sync service, or settling for a raw-text SSH client.
 
 ## Features
 
-- **SSH/SFTP browsing** — folders and `.md`/`.markdown`/`.html` files only.
+- **SSH/SFTP browsing** — folders and `.md`/`.markdown`/`.html` files only, sortable newest- or oldest-first.
 - **Styled reader** — Markdown rendered to themed HTML (light/dark) via
   [swift-markdown](https://github.com/apple/swift-markdown); HTML files render directly.
 - **Three auth methods** — **Tailscale SSH** (keyless), private key (OpenSSH

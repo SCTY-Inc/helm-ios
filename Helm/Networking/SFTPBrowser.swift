@@ -72,9 +72,17 @@ struct SearchHit: Identifiable, Hashable, Sendable {
     var id: String { path }
 
     static func newestFirst(_ lhs: SearchHit, _ rhs: SearchHit) -> Bool {
+        compare(lhs, rhs, newestFirst: true)
+    }
+
+    static func oldestFirst(_ lhs: SearchHit, _ rhs: SearchHit) -> Bool {
+        compare(lhs, rhs, newestFirst: false)
+    }
+
+    private static func compare(_ lhs: SearchHit, _ rhs: SearchHit, newestFirst: Bool) -> Bool {
         switch (lhs.modified, rhs.modified) {
         case let (left?, right?):
-            if left != right { return left > right }
+            if left != right { return newestFirst ? left > right : left < right }
             return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
         case (.some, .none):
             return true
@@ -115,12 +123,7 @@ final class SFTPBrowser: @unchecked Sendable {
                 .flatMap(\.components)
                 .compactMap { Self.entry(from: $0, parentPath: path) }
 
-            return entries.sorted { lhs, rhs in
-                if lhs.isDirectory != rhs.isDirectory {
-                    return lhs.isDirectory && !rhs.isDirectory
-                }
-                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-            }
+            return entries.sorted(by: RemoteFileEntry.newestFirst)
         }
     }
 
